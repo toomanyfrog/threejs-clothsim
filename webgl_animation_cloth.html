@@ -147,8 +147,9 @@
 				clothGeometry = new THREE.ParametricBufferGeometry( clothFunction, cloth.w, cloth.h );
 
 				// cloth mesh
-
-				object = new THREE.Mesh( clothGeometry, clothMaterial );
+				clothGeometry = new THREE.PlaneBufferGeometry( cloth.w*20, cloth.h*20, cloth.w, cloth.h );
+				var material = new THREE.MeshBasicMaterial( {color: 0xffaa00, side: THREE.DoubleSide, wireframe: true} );
+				object = new THREE.Mesh( clothGeometry, material );
 				object.position.set( 0, 0, 0 );
 				object.castShadow = true;
 				scene.add( object );
@@ -256,7 +257,12 @@
 				window.addEventListener( 'resize', onWindowResize, false );
 
 				sphere.visible = ! true;
-
+				/*for (var djk = 0; djk < clothGeometry.attributes.position.count; djk ++) {
+					console.log([	clothGeometry.attributes.position.getX(djk),
+									clothGeometry.attributes.position.getY(djk),
+									clothGeometry.attributes.position.getZ(djk)]);
+				}*/
+				console.log(clothGeometry.parameters);
 			}
 
 			//
@@ -297,7 +303,6 @@
 				for ( var i = 0, il = p.length; i < il; i ++ ) {
 
 					var v = p[ i ].position;
-
 					clothGeometry.attributes.position.setXYZ( i, v.x, v.y, v.z );
 
 				}

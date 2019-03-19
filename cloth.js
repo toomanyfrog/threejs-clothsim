@@ -1,115 +1,86 @@
-if ( WEBGL.isWebGLAvailable() === false ) {
-  document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+var MASS = 0.1;
+var TIMESTEP = 0.06;
+var TIMESTEP_2 = TIMESTEP * TIMESTEP;
+var restDistance = 25;
+
+var lastTime, elapsedTime;
+
+function getIndex(u,v,cols) {
+	// PlaneBufferGeometry iterates v then u
+	return u + v*(cols+1);
 }
 
-var container, stats;
-var camera, scene, renderer;
+class Cloth {
+    constructor(geometry) {
+		// a PlaneBufferGeometry object
+		var meshVertices = geometry.attributes.position;
+        this.width = geometry.parameters.width;
+        this.height = geometry.parameters.height;
+		this.particles = []; 	//array of VerletParticle
+		this.constraints = [];	//array of index pairs and dist-constraint
 
-var clothGeometry;
+		var u,v;
+		for (v=0; v<=geometry.parameters.heightSegments; v++) {
+			for (u=0; u<=geometry.parameters.widthSegments; u++) {
+				var i = getIndex(u,v,geometry.parameters.widthSegments);
+				var vertPos = [	meshVertices.getX(i),
+								meshVertices.getY(i),
+								meshVertices.getZ(i)];
+				this.particles.push( new VerletParticle(vertPos, MASS) );
+			}
+		}
+		for (v=0; v<height; v++ ) {
+			for ( u=0; u<width; u++ ) {
+				this.constraints.push([
+					this.particles[ index(u,v) ],
+					this.particles[ index(u,v+1) ],
+					restDistance
+				]);
+				this.constraints.push([
+					this.particles[ index(u,v) ],
+					this.particles[ index(u+1,v) ],
+					restDistance
+				]);
+			}
+		}
+    }
 
-init();
-animate();
+	simulate(time) { // Date.now()
+		//add forces, integrate, solve for constraints
+		if (!lastTime) {
+			lastTime = time;
+		}
 
-function init() {
-  container = document.createElement( 'div' );
-  document.body.appendChild( container );
-  scene();
-  models();
+	}
+    satisfyConstraints() {
 
-
-  // renderer
-
-  renderer = new THREE.WebGLRenderer( { antialias: true } );
-  renderer.setPixelRatio( window.devicePixelRatio );
-  renderer.setSize( window.innerWidth, window.innerHeight );
-
-  container.appendChild( renderer.domElement );
-
-  renderer.gammaInput = true;
-  renderer.gammaOutput = true;
-
-  renderer.shadowMap.enabled = true;
-
-  // controls
-  var controls = new THREE.OrbitControls( camera, renderer.domElement );
-  controls.maxPolarAngle = Math.PI * 0.5;
-  controls.minDistance = 1000;
-  controls.maxDistance = 5000;
-
-  // performance monitor
-
-  stats = new Stats();
-  container.appendChild( stats.dom );
-
-  //
-
-  window.addEventListener( 'resize', onWindowResize, false );
-}
-
-function animate() {
-  requestAnimationFrame( animate );
-  var time = Date.now();
-//  simulate( time );
-  render();
-  stats.update();
-}
-
-function render() {
-
-  renderer.render( scene, camera );
-}
-
-function scene() {
-  // scene
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color( 0xcce0ff );
-  scene.fog = new THREE.Fog( 0xcce0ff, 500, 10000 );
-
-  // camera
-  camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 10000 );
-  camera.position.set( 1000, 50, 1500 );
-
-  // lights
-  scene.add( new THREE.AmbientLight( 0x666666 ) );
-  var light = new THREE.DirectionalLight( 0xdfebff, 1 );
-  light.position.set( 50, 200, 100 );
-  light.position.multiplyScalar( 1.3 );
-  light.castShadow = true;
-  light.shadow.mapSize.width = 1024;
-  light.shadow.mapSize.height = 1024;
-
-  var d = 300;
-  light.shadow.camera.left = - d;
-  light.shadow.camera.right = d;
-  light.shadow.camera.top = d;
-  light.shadow.camera.bottom = - d;
-  light.shadow.camera.far = 1000;
-
-  scene.add( light );
-}
-
-function models() {
-  // create models here
-  var loader = new THREE.TextureLoader();
-
-  var groundTexture = loader.load( 'textures/terrain/grasslight-big.jpg' );
-  groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-  groundTexture.repeat.set( 25, 25 );
-  groundTexture.anisotropy = 16;
-
-  var groundMaterial = new THREE.MeshLambertMaterial( { map: groundTexture } );
-
-  var mesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 20000, 20000 ), groundMaterial );
-  mesh.position.y = - 250;
-  mesh.rotation.x = - Math.PI / 2;
-  mesh.receiveShadow = true;
-  scene.add( mesh );
-
+	}
 }
 
 
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize( window.innerWidth, window.innerHeight );
+class VerletParticle {
+	// position verlet
+	constructor(pos, mass) {
+		this.position = new THREE.Vector3(pos[0], pos[1], pos[2]);
+		this.mass = mass; this.massInv = 1/mass;
+		this.previousPos = new THREE.Vector3(pos[0], pos[1], pos[2]); // previous position
+		this.acceleration = new THREE.Vector3();
+		this.dir = new THREE.Vector3();
+	}
+
+	addForce(f) {
+		// acceleration = force / mass
+		// f is a THREE.Vector3()
+		this.acceleration.add(f.multiplyScalar(this.massInv));
+	}
+
+	integrate(timeStep2) {
+		// squared timestep
+		var newPos = new THREE.Vector3();
+		this.dir.subVectors(this.position, this.previousPos);
+		newPos.add(this.position).add(this.acceleration.multiplyScalar(timeStep2));
+		this.previous = this.position;
+		this.position = newPos;
+		this.acceleration.set(0,0,0);
+	}
 }
