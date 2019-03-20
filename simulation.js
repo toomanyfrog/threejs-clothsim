@@ -53,6 +53,8 @@ function initCloth() {
     clothMesh.castShadow = true;
     scene.add( clothMesh );
     cloth = new Cloth(clothMesh);
+    cloth.addPin([0,0]);
+    cloth.addPin([params.slices, 0]);
 }
 function destroyCloth() {
     scene.remove(clothMesh);

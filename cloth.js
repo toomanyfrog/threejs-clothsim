@@ -62,9 +62,7 @@ class Cloth {
 			i_uv = index(u, this.height, this.width);
 			i_u1v = index(u+1, this.height, this.width);
 			restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
-			this.constraints.push([	this.particles[i_uv],
-									this.particles[i_u1v],
-									restDist2] );
+			this.constraints.push([	this.particles[i_uv], this.particles[i_u1v], restDist2] );
 		}
 
 		//Shear constraints
@@ -76,22 +74,18 @@ class Cloth {
 				diagonalDist = this.particles[i_uv].position.distanceTo(this.particles[i_u1v1].position);
 				i_u1v = index(u+1,v,this.width);
 				i_uv1 = index(u,v+1,this.width);
-				this.constraints.push([
-					this.particles[i_uv],
-					this.particles[i_u1v1],
-					diagonalDist]);
+				this.constraints.push([this.particles[i_uv],this.particles[i_u1v1],diagonalDist]);
 				diagonalDist = this.particles[i_u1v].position.distanceTo(this.particles[i_uv1].position)
-				this.constraints.push([
-					this.particles[i_u1v],
-					this.particles[i_uv1],
-					diagonalDist]);
+				this.constraints.push([this.particles[i_u1v],this.particles[i_uv1],diagonalDist]);
 			}
 		}
-
-
-
-
     }
+	addPin(uv) {
+		this.pins.push(this.particles[index(uv[0],uv[1],this.width)]);
+	}
+	clearPins() {
+		this.pins = [];
+	}
 	addForce(f, opt) {
 		switch(opt) {
 			case "uniform":
@@ -132,6 +126,7 @@ class Cloth {
 				pos.y = - 250;
 			}
 		}
+		this.putPinsBack();
 		/*
 		elapsedTime = time - lastTime + leftoverTime;
 		lastTime = time;
@@ -165,6 +160,13 @@ class Cloth {
 			for (var i=0; i<this.constraints.length; i++) {
 				fix(this.constraints[i][0], this.constraints[i][1], this.constraints[i][2]);
 			}
+		}
+	}
+	putPinsBack() {
+		var p;
+		for (var i=0; i<this.pins.length; i++) {
+			p = this.pins[i];
+			p.position.copy(p.originalPos);
 		}
 	}
 }
