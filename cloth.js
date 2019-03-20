@@ -1,10 +1,14 @@
-var MASS = 0.1;
-var TIMESTEP = 0.1;
-var TIMESTEP_2 = TIMESTEP * TIMESTEP;
-var CONSTRAINT_ALPHA = 0.1;
-var restDistance = 100;
-var GRAVITY = 9.81;
-var WEIGHT = new THREE.Vector3( 0, -GRAVITY, 0 ).multiplyScalar( MASS );
+var CONSTANTS = {
+	MASS: 0.1,
+	TIMESTEP: 0.1,
+	CONSTRAINT_ALPHA: 0.1,
+	CONSTRAINT_ITERS: 5,
+	SPRING_CONST: 2,
+	DAMPING_CONST: 0.2,
+	GRAVITY: 9.81
+}
+var TIMESTEP_2 = CONSTANTS.TIMESTEP * CONSTANTS.TIMESTEP;
+var WEIGHT = new THREE.Vector3( 0, -CONSTANTS.GRAVITY, 0 ).multiplyScalar( CONSTANTS.MASS );
 
 var lastTime;
 var elapsedTime = 0;
@@ -33,7 +37,7 @@ class Cloth {
 				vertPos.set(meshVertices.getX(i),
 							meshVertices.getY(i),
 							meshVertices.getZ(i));
-				this.particles.push( new VerletParticle(vertPos, MASS) );
+				this.particles.push( new VerletParticle(vertPos, CONSTANTS.MASS) );
 			}
 		}
 		this.addConstraints(constraint_types);
@@ -116,8 +120,13 @@ class Cloth {
 	addPin(uv) {
 		this.pins.push(this.particles[index(uv[0],uv[1],this.width)]);
 	}
-	clearPins() {
-		this.pins = [];
+	removePin(uv) {
+		var offender = this.particles[index(uv[0],uv[1],this.width)];
+		for (var i=0; i<this.pins.length; i++) {
+			if (this.pins[i] == offender) {
+				this.pins.splice(i,1);
+			}
+		}
 	}
 	addForce(f, opt) {
 		switch(opt) {
@@ -137,24 +146,49 @@ class Cloth {
 			default:
 		}
 	}
+	addSpringForces() {
+		var p1, p2, dist, restLength;
+		var f1 = new THREE.Vector3();
+		var f2 = new THREE.Vector3();
+		var v1 = new THREE.Vector3();
+		var v2 = new THREE.Vector3();
+		var delta_v = new THREE.Vector3();
+		var directionTo2 = new THREE.Vector3();
+		for (var i=0; i<this.constraints.length; i++) {
+			// p1, p2, spring rest length
+			// direction of change in x
+			//  [ k(dist(x1,x2)-r) + d(v1-v2 dot  normdir(x1,x2)) ] * dir(x1,x2)
+			p1 = this.constraints[i][0];
+			p2 = this.constraints[i][1];
+			v1.subVectors(p1.position, p1.previousPos);
+			v2.subVectors(p2.position, p2.previousPos);
+			restLength = this.constraints[i][2];
+			dist = p1.position.distanceTo(p2.position);
+			var f_d = directionTo2.subVectors(p2.position, p1.position).divideScalar(dist).clone();
+			delta_v.subVectors(v2, v1);
+			f1.addVectors(	directionTo2.multiplyScalar(CONSTANTS.SPRING_CONST).multiplyScalar(dist-restLength),
+							delta_v.projectOnVector(f_d).multiplyScalar(CONSTANTS.DAMPING_CONST) );
+			f2.copy(f1).negate();
+			p1.addForce(f1); p2.addForce(f2);
+		}
+	}
 	integrationStep() {
 		for (var i=0; i<this.particles.length; i++) {
 			this.particles[i].integrate();
 		}
 	}
-	simulate(time, floor) { // Date.now()
+	simulate(time, floor, type) { // Date.now()
 		//add forces, integrate, solve for constraints
-
 		if (!lastTime) {
 			lastTime = time;
 			return;
 		}
 		this.addForce(WEIGHT, "uniform");
-
+		if (type == "springmass") this.addSpringForces();
 		this.integrationStep();
 		this.putPinsBack();
 		if (floor != null) this.putClothOnFloor(floor);
-		this.satisfyConstraints(5);
+		if (type == "constraints") this.satisfyConstraints(CONSTANTS.CONSTRAINT_ITERS);
 
 		/*
 		elapsedTime = time - lastTime + leftoverTime;
@@ -180,7 +214,7 @@ class Cloth {
 			if (currentDist === 0) return;
 			var correction = diff.multiplyScalar(1 - restLength/currentDist)
 								.multiplyScalar(0.5)
-								.multiplyScalar(CONSTRAINT_ALPHA);
+								.multiplyScalar(CONSTANTS.CONSTRAINT_ALPHA);
 			p1.position.add(correction);
 			p2.position.sub(correction);
 		}
