@@ -3,10 +3,12 @@ if ( WEBGL.isWebGLAvailable() === false ) {
 }
 
 /*
-**  Make cloth fall in gravity
-**  Make interactive cloth: click and drag to add force
-**  Fix rest distance to be dynamic
-**  Add different parametric geometry
+**  Make cloth fall in gravity                              DONE
+**  Make interactive cloth: click and drag to add force     GAVE UP RAYCAST NOT WORKING
+**  Fix rest distance to be dynamic                         DONE
+**  Add cloth cloth collision
+**  Write new integrator                                    EXPLICIT EULER DONE
+**  Add different parametric geometry                       MAYBE NOT AS IMPORTANT BUT I KINDA DID IT
 */
 
 var container, stats;
@@ -21,10 +23,12 @@ var clothMesh, clothGeometry, cloth, floorMesh;
 var clothMat = new THREE.MeshStandardMaterial({color:0x200311});
 var constraintTypes = "";
 var params = {
+    geometry: "plane",
     width: 500,
     height: 500,
     slices: 5,
     stacks: 5,
+    integrator: "positionverlet",
     clothmodel: "constraints",
     stretch: true,
     shear: true,
@@ -61,6 +65,7 @@ animate();
 function initGUI() {
     gui = new dat.GUI();
     var f1 = gui.addFolder('Cloth');
+    f1.add(params, 'geometry', ["plane", "plane45", "plane90", "klein", "mobius", "mobius3d"]); //, "tube", "torusknot", "sphere"]);
     f1.add(params, 'width', 10, 1000);
     f1.add(params, 'height', 10, 1000);
     f1.add(params, 'slices', 5, 80, 5);
@@ -74,6 +79,7 @@ function initGUI() {
         render();
     });
     var f2 = gui.addFolder('Simulation');
+    f2.add(params, 'integrator', ["positionverlet", "expliciteuler"]);
     f2.add(params, 'clothmodel', ["constraints", "springmass"]);
     f2.add(params, 'stretch');
     f2.add(params, 'shear');
@@ -97,12 +103,28 @@ function initGUI() {
 
 function initCloth() {
     // create cloth
-    clothGeometry = new THREE.ParametricBufferGeometry(
-                        THREE.ParametricGeometries.plane(params.width,params.height), params.slices, params.stacks );
-    clothGeometry = new THREE.ParametricBufferGeometry(plane45(params.width,params.height, 100),
-                        params.slices, params.stacks );
-    //clothGeometry = new THREE.ParametricBufferGeometry(THREE.ParametricGeometries.klein, 50, 50 );
-    //clothGeometry.scale(20,20,20);
+    if (params.geometry == "plane") clothGeometry = new THREE.ParametricBufferGeometry(THREE.ParametricGeometries.plane(params.width,params.height), params.slices, params.stacks );
+    if (params.geometry == "plane45") clothGeometry = new THREE.ParametricBufferGeometry(plane45(params.width,params.height, params.width), params.slices, params.stacks );
+    if (params.geometry == "plane90") clothGeometry = new THREE.ParametricBufferGeometry(yPlane(params.width,params.height), params.slices, params.stacks );
+    if (params.geometry == "klein") {
+        clothGeometry = new THREE.ParametricBufferGeometry(THREE.ParametricGeometries.klein, params.slices, params.stacks );
+        clothGeometry.scale(20,20,20);
+    }
+    if (params.geometry == "mobius") {
+        clothGeometry = new THREE.ParametricBufferGeometry(THREE.ParametricGeometries.mobius, params.slices, params.stacks );
+        clothGeometry.scale(100,100,100);
+    }
+    if (params.geometry == "mobius3d") {
+        clothGeometry = new THREE.ParametricBufferGeometry(THREE.ParametricGeometries.mobius3d, params.slices, params.stacks );
+        clothGeometry.scale(100,100,100);
+    }
+    /*
+    if (params.geometry == "sphere") {
+        var sphere = new THREE.ParametricGeometries.SphereGeometry( 50, params.slices, params.stacks );
+        clothGeometry = new THREE.BufferGeometry.fromGeometry(sphere);
+        clothGeometry.scale(100,100,100);
+    } */
+
 
     clothMat = new THREE.MeshStandardMaterial({ color:materialProperties.color, side: THREE.DoubleSide,
 									metalness: materialProperties.metalness,
@@ -120,7 +142,7 @@ function initCloth() {
     if (params.stretch) constraintTypes += "st";
     if (params.shear) constraintTypes += "sh";
     if (params.bend) constraintTypes += "b";
-    cloth = new Cloth(clothMesh, constraintTypes);
+    cloth = new Cloth(clothMesh, constraintTypes, "positionverlet");
     if (params.pinCenter) cloth.addPin(pinOptions.center);
     if (params.pinTopLeft) cloth.addPin(pinOptions.topleft);
     if (params.pinTopRight) cloth.addPin(pinOptions.topright);

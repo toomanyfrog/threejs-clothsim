@@ -24,10 +24,11 @@ function recalculateDependentConstants() {
 }
 
 class Cloth {
-    constructor(mesh, constraint_types) {
+    constructor(mesh, constraint_types, integrator_type) {
 		// a PlaneBufferGeometry object
 		var geometry = mesh.geometry;
 		var meshVertices = geometry.getAttribute('position');
+		this.integrator = integrator_type;
         this.width = geometry.parameters.slices;
         this.height = geometry.parameters.stacks;
 		this.particles = []; 	//array of VerletParticle
@@ -41,7 +42,8 @@ class Cloth {
 				vertPos.set(meshVertices.getX(i),
 							meshVertices.getY(i),
 							meshVertices.getZ(i));
-				this.particles.push( new VerletParticle(vertPos, CONSTANTS.MASS) );
+				if (this.integrator == "positionverlet") this.particles.push( new VerletParticle(vertPos, CONSTANTS.MASS) );
+				if (this.integrator == "expliciteuler") this.particles.push( new ExplicitEulerParticle(vertPos, CONSTANTS.MASS) );
 			}
 		}
 		this.addConstraints(constraint_types);
@@ -164,8 +166,14 @@ class Cloth {
 			//  [ k(dist(x1,x2)-r) + d(v1-v2 dot  normdir(x1,x2)) ] * dir(x1,x2)
 			p1 = this.constraints[i][0];
 			p2 = this.constraints[i][1];
-			v1.subVectors(p1.position, p1.previousPos);
-			v2.subVectors(p2.position, p2.previousPos);
+			if (this.integrator == "positionverlet") {
+				v1.subVectors(p1.position, p1.previousPos);
+				v2.subVectors(p2.position, p2.previousPos);
+			}
+			if (this.integrator == "expliciteuler") {
+				v1 = p1.velocity;
+				v2 = p2.velocity;
+			}
 			restLength = this.constraints[i][2];
 			dist = p1.position.distanceTo(p2.position);
 			var f_d = directionTo2.subVectors(p2.position, p1.position).divideScalar(dist).clone();
@@ -191,6 +199,10 @@ class Cloth {
 		if (type == "springmass") this.addSpringForces();
 		this.integrationStep();
 		this.putPinsBack();
+		if (type == "springmass") {
+			this.addSpringForces();
+			this.integrationStep();
+		}
 		if (floor != null) this.putClothOnFloor(floor);
 		if (type == "constraints") this.satisfyConstraints(CONSTANTS.CONSTRAINT_ITERS);
 
@@ -273,6 +285,32 @@ class VerletParticle {
 		this.direction = this.previousPos;
 		this.previousPos = this.position;
 		this.position = newPos;
+		this.acceleration.set(0,0,0);
+	}
+}
+
+class ExplicitEulerParticle {
+	constructor(pos, mass) {
+		this.position = pos;
+		this.originalPos = pos.clone(); // original position
+		this.mass = mass; this.massInv = 1/mass;
+		this.velocity = new THREE.Vector3();
+		this.acceleration = new THREE.Vector3();
+		this.direction = new THREE.Vector3();
+		this.force = new THREE.Vector3();
+	}
+
+	addForce(f) {
+		// acceleration = force / mass
+		// f is a THREE.Vector3()
+		this.acceleration.add(
+			this.force.copy(f).multiplyScalar(this.massInv)
+		);
+	}
+
+	integrate() {
+		this.velocity.add(this.acceleration.clone().multiplyScalar(CONSTANTS.TIMESTEP));
+		this.position.add(this.velocity.clone().multiplyScalar(CONSTANTS.TIMESTEP));
 		this.acceleration.set(0,0,0);
 	}
 }
