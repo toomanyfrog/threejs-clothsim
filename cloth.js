@@ -142,7 +142,7 @@ class Cloth {
 			this.particles[i].integrate();
 		}
 	}
-	simulate(time) { // Date.now()
+	simulate(time, floor) { // Date.now()
 		//add forces, integrate, solve for constraints
 
 		if (!lastTime) {
@@ -153,13 +153,9 @@ class Cloth {
 
 		this.integrationStep();
 		this.putPinsBack();
+		if (floor != null) this.putClothOnFloor(floor);
 		this.satisfyConstraints(5);
-		for ( var i = 0; i < this.particles.length; i ++ ) {
-			var pos = this.particles[i].position;
-			if ( pos.y < - 250 ) {
-				pos.y = - 250;
-			}
-		}
+
 		/*
 		elapsedTime = time - lastTime + leftoverTime;
 		lastTime = time;
@@ -175,7 +171,6 @@ class Cloth {
 				}
 			}
 		}*/
-
 	}
     satisfyConstraints(iterations) {
 		var diff = new THREE.Vector3();
@@ -200,6 +195,14 @@ class Cloth {
 		for (var i=0; i<this.pins.length; i++) {
 			p = this.pins[i];
 			p.position.copy(p.originalPos);
+		}
+	}
+	putClothOnFloor(floorYPos) {
+		for ( var i = 0; i < this.particles.length; i ++ ) {
+			var pos = this.particles[i].position;
+			if ( pos.y < floorYPos ) {
+				pos.y = floorYPos;
+			}
 		}
 	}
 }
