@@ -16,7 +16,7 @@ function index(u,v,cols) {
 }
 
 class Cloth {
-    constructor(mesh) {
+    constructor(mesh, constraint_types) {
 		// a PlaneBufferGeometry object
 		var geometry = mesh.geometry;
 		var meshVertices = geometry.getAttribute('position');
@@ -26,7 +26,6 @@ class Cloth {
 		this.constraints = [];	//array of index pairs and dist-constraint
 		this.pins = [];
 		var u,v;
-
 		for (v=0; v<=this.height; v++) {
 			for (u=0; u<=this.width; u++) {
 				var i = index(u,v,this.width);
@@ -37,49 +36,83 @@ class Cloth {
 				this.particles.push( new VerletParticle(vertPos, MASS) );
 			}
 		}
-		var i_uv, i_uv1, i_u1v, restDist1, restDist2;
-		// Structural constraints
-		for (v=0; v<this.height; v++ ) {
-			for ( u=0; u<this.width; u++ ) {
-				i_uv = index(u,v,this.width);
-				i_uv1 = index(u,v+1,this.width);
-				i_u1v = index(u+1,v,this.width);
+		this.addConstraints(constraint_types);
+    }
+	addConstraints(types) {
+		var u,v,i_uv, i_uv1, i_u1v, restDist1, restDist2;
+		if (types.indexOf('st') > -1) {
+			// Structural constraints
+			for (v=0; v<this.height; v++ ) {
+				for ( u=0; u<this.width; u++ ) {
+					i_uv = index(u,v,this.width);
+					i_uv1 = index(u,v+1,this.width);
+					i_u1v = index(u+1,v,this.width);
+					restDist1 = this.particles[i_uv].position.distanceTo(this.particles[i_uv1].position);
+					restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
+					this.constraints.push([this.particles[i_uv], this.particles[i_uv1],
+						restDist1]);
+					this.constraints.push([this.particles[i_uv], this.particles[i_u1v],
+						restDist2]);
+				}
+			}
+			for (v=0; v<this.height; v++) {
+				i_uv = index(this.width, v, this.width);
+				i_uv1 = index(this.width, v+1, this.width);
 				restDist1 = this.particles[i_uv].position.distanceTo(this.particles[i_uv1].position);
+				this.constraints.push([	this.particles[i_uv],this.particles[i_uv1],restDist1 ]);
+			}
+			for (u=0; u<this.width; u++) {
+				i_uv = index(u, this.height, this.width);
+				i_u1v = index(u+1, this.height, this.width);
 				restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
-				this.constraints.push([this.particles[i_uv], this.particles[i_uv1],
-					restDist1]);
-				this.constraints.push([this.particles[i_uv], this.particles[i_u1v],
-					restDist2]);
+				this.constraints.push([	this.particles[i_uv], this.particles[i_u1v], restDist2] );
 			}
 		}
-		for (v=0; v<this.height; v++) {
-			i_uv = index(this.width, v, this.width);
-			i_uv1 = index(this.width, v+1, this.width);
-			restDist1 = this.particles[i_uv].position.distanceTo(this.particles[i_uv1].position);
-			this.constraints.push([	this.particles[i_uv],this.particles[i_uv1],restDist1 ]);
-		}
-		for (u=0; u<this.width; u++) {
-			i_uv = index(u, this.height, this.width);
-			i_u1v = index(u+1, this.height, this.width);
-			restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
-			this.constraints.push([	this.particles[i_uv], this.particles[i_u1v], restDist2] );
-		}
-
+		if (types.indexOf('sh') > -1) {
 		//Shear constraints
 		var i_u1v1, diagonalDist;
-		for (v=0; v<this.height; v++ ) {
-			for ( u=0; u<this.width; u++ ) {
-				i_uv = index(u,v,this.width);
-				i_u1v1 = index(u+1,v+1,this.width);
-				diagonalDist = this.particles[i_uv].position.distanceTo(this.particles[i_u1v1].position);
-				i_u1v = index(u+1,v,this.width);
-				i_uv1 = index(u,v+1,this.width);
-				this.constraints.push([this.particles[i_uv],this.particles[i_u1v1],diagonalDist]);
-				diagonalDist = this.particles[i_u1v].position.distanceTo(this.particles[i_uv1].position)
-				this.constraints.push([this.particles[i_u1v],this.particles[i_uv1],diagonalDist]);
+			for (v=0; v<this.height; v++ ) {
+				for ( u=0; u<this.width; u++ ) {
+					i_uv = index(u,v,this.width);
+					i_u1v1 = index(u+1,v+1,this.width);
+					diagonalDist = this.particles[i_uv].position.distanceTo(this.particles[i_u1v1].position);
+					i_u1v = index(u+1,v,this.width);
+					i_uv1 = index(u,v+1,this.width);
+					this.constraints.push([this.particles[i_uv],this.particles[i_u1v1],diagonalDist]);
+					diagonalDist = this.particles[i_u1v].position.distanceTo(this.particles[i_uv1].position)
+					this.constraints.push([this.particles[i_u1v],this.particles[i_uv1],diagonalDist]);
+				}
 			}
 		}
-    }
+		if (types.indexOf('b') > -1) {
+			//Bend constraints
+			for (v=0; v<this.height-1; v++ ) {
+				for ( u=0; u<this.width-1; u++ ) {
+					i_uv = index(u,v,this.width);
+					i_uv1 = index(u,v+2,this.width);
+					i_u1v = index(u+2,v,this.width);
+					restDist1 = this.particles[i_uv].position.distanceTo(this.particles[i_uv1].position);
+					restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
+					this.constraints.push([this.particles[i_uv], this.particles[i_uv1],
+						restDist1]);
+					this.constraints.push([this.particles[i_uv], this.particles[i_u1v],
+						restDist2]);
+				}
+			}
+			for (v=0; v<this.height-1; v++) {
+				i_uv = index(this.width, v, this.width);
+				i_uv1 = index(this.width, v+2, this.width);
+				restDist1 = this.particles[i_uv].position.distanceTo(this.particles[i_uv1].position);
+				this.constraints.push([	this.particles[i_uv],this.particles[i_uv1],restDist1 ]);
+			}
+			for (u=0; u<this.width-1; u++) {
+				i_uv = index(u, this.height, this.width);
+				i_u1v = index(u+2, this.height, this.width);
+				restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
+				this.constraints.push([	this.particles[i_uv], this.particles[i_u1v], restDist2] );
+			}
+		}
+	}
 	addPin(uv) {
 		this.pins.push(this.particles[index(uv[0],uv[1],this.width)]);
 	}
@@ -119,6 +152,7 @@ class Cloth {
 		this.addForce(WEIGHT, "uniform");
 
 		this.integrationStep();
+		this.putPinsBack();
 		this.satisfyConstraints(5);
 		for ( var i = 0; i < this.particles.length; i ++ ) {
 			var pos = this.particles[i].position;
@@ -126,7 +160,6 @@ class Cloth {
 				pos.y = - 250;
 			}
 		}
-		this.putPinsBack();
 		/*
 		elapsedTime = time - lastTime + leftoverTime;
 		lastTime = time;

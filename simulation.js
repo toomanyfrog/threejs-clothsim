@@ -16,11 +16,15 @@ var raycastThreshold = 0.1;
 var play = false;
 
 var clothMesh, clothGeometry, cloth;
+var constraintTypes = "";
 var params = {
     width: 500,
     height: 500,
     slices: 5,
     stacks: 5,
+    stretch: true,
+    shear: true,
+    bend: true,
     restart: function() { destroyCloth(); initCloth(); },
     playpause: function() { if (!play) {play = true;} else {play=false} }
 }
@@ -34,6 +38,9 @@ function initGUI() {
     gui.add(params, 'height', 10, 1000);
     gui.add(params, 'slices', 5, 80, 5);
     gui.add(params, 'stacks', 5, 80, 5);
+    gui.add(params, 'stretch');
+    gui.add(params, 'shear');
+    gui.add(params, 'bend');
     gui.add(params, 'restart');
     gui.add(params, 'playpause')
 }
@@ -52,9 +59,15 @@ function initCloth() {
     clothMesh.position.set( 0, 50, 0 );
     clothMesh.castShadow = true;
     scene.add( clothMesh );
-    cloth = new Cloth(clothMesh);
+
+    // constraint types
+    constraintTypes = "";
+    if (params.stretch) constraintTypes += "st";
+    if (params.shear) constraintTypes += "sh";
+    if (params.bend) constraintTypes += "b";
+    cloth = new Cloth(clothMesh, constraintTypes);
     cloth.addPin([0,0]);
-    cloth.addPin([params.slices, 0]);
+    //cloth.addPin([Math.floor(params.slices/2), Math.floor(params.stacks/2)]);
 }
 function destroyCloth() {
     scene.remove(clothMesh);
