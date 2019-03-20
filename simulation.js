@@ -26,13 +26,14 @@ var params = {
     geometry: "plane",
     width: 500,
     height: 500,
-    slices: 5,
-    stacks: 5,
+    slices: 20,
+    stacks: 20,
     integrator: "positionverlet",
     clothmodel: "constraints",
     stretch: true,
     shear: true,
     bend: true,
+    selfcollisions: false,
     restart: function() { destroyCloth(); initCloth(); },
     playpause: function() { if (!play) {play = true;} else {play=false} },
     floorheight: -250,
@@ -84,16 +85,18 @@ function initGUI() {
     f2.add(params, 'stretch');
     f2.add(params, 'shear');
     f2.add(params, 'bend');
+    // f2.add(params, 'selfcollisions'); its not ready for real time
     var f3 = gui.addFolder('Constants');
     f3.add(CONSTANTS, 'MASS', 0.1, 2).onChange(function() { recalculateDependentConstants(); });
     f3.add(CONSTANTS, 'TIMESTEP', 0.01, 1).onChange(function() { recalculateDependentConstants(); });
+    f3.add(CONSTANTS, 'DRAG', 0, 1);
     f3.add(CONSTANTS, 'CONSTRAINT_ALPHA', 0, 1);
     f3.add(CONSTANTS, 'CONSTRAINT_ITERS', 3, 30);
     f3.add(CONSTANTS, 'SPRING_CONST', 0, 5);
     f3.add(CONSTANTS, 'DAMPING_CONST', 0.01, 5);
     f3.add(CONSTANTS, 'GRAVITY').onChange(function() { recalculateDependentConstants(); });
     var f4 = gui.addFolder('Environment');
-    f4.add(params, 'floorheight', -500, 500);
+    f4.add(params, 'floorheight', -1000, 500);
     f4.add(params, 'pinCenter').onChange(function(b) { if (b) {cloth.addPin(pinOptions.center); } else { cloth.removePin(pinOptions.center)} });
     f4.add(params, 'pinTopLeft').onChange(function(b) { if (b) {cloth.addPin(pinOptions.topleft); } else { cloth.removePin(pinOptions.topleft)} });
     f4.add(params, 'pinTopRight').onChange(function(b) { if (b) {cloth.addPin(pinOptions.topright); } else { cloth.removePin(pinOptions.topright)} });
@@ -142,7 +145,9 @@ function initCloth() {
     if (params.stretch) constraintTypes += "st";
     if (params.shear) constraintTypes += "sh";
     if (params.bend) constraintTypes += "b";
-    cloth = new Cloth(clothMesh, constraintTypes, "positionverlet");
+    cloth = new Cloth(clothMesh,
+        {   constraint_types: constraintTypes,
+            integrator_type: "positionverlet"} );
     if (params.pinCenter) cloth.addPin(pinOptions.center);
     if (params.pinTopLeft) cloth.addPin(pinOptions.topleft);
     if (params.pinTopRight) cloth.addPin(pinOptions.topright);
@@ -202,7 +207,7 @@ function init() {
 function animate() {
     requestAnimationFrame( animate );
     var time = Date.now();
-    if (play)  cloth.simulate( time, params.floorheight, params.clothmodel );
+    if (play)  cloth.simulate( time, params.floorheight, params.clothmodel, params.selfcollisions );
     render();
     stats.update();
 }
@@ -214,7 +219,7 @@ function render() {
         clothGeometry.getAttribute('position').setXYZ(i, p.position.x, p.position.y, p.position.z);
     }
     clothGeometry.attributes.position.needsUpdate = true;
-    floorMesh.position.y = params.floorheight;
+    floorMesh.position.y = params.floorheight+49;
 
     renderer.render( scene, camera );
 }
@@ -275,7 +280,7 @@ function models() {
     //create ground
     floorMesh = new THREE.Mesh(  new THREE.PlaneBufferGeometry( 20000, 20000 ),
                                 new THREE.MeshStandardMaterial( {color: 0x555555, roughness:0, metalness: 0} ) );
-    floorMesh.position.y = - 250;
+    floorMesh.position.y = -250;
     floorMesh.rotation.x = - Math.PI / 2;
     floorMesh.receiveShadow = true;
     scene.add( floorMesh );

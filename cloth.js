@@ -1,6 +1,7 @@
 var CONSTANTS = {
 	MASS: 0.1,
 	TIMESTEP: 0.1,
+	DRAG: 0,
 	CONSTRAINT_ALPHA: 0.1,
 	CONSTRAINT_ITERS: 5,
 	SPRING_CONST: 2,
@@ -24,16 +25,17 @@ function recalculateDependentConstants() {
 }
 
 class Cloth {
-    constructor(mesh, constraint_types, integrator_type) {
+    constructor(mesh, opts) {
 		// a PlaneBufferGeometry object
 		var geometry = mesh.geometry;
 		var meshVertices = geometry.getAttribute('position');
-		this.integrator = integrator_type;
+		this.opts = opts;
         this.width = geometry.parameters.slices;
         this.height = geometry.parameters.stacks;
 		this.particles = []; 	//array of VerletParticle
 		this.constraints = [];	//array of index pairs and dist-constraint
 		this.pins = [];
+		this.sampleRestDist = 0;
 		var u,v;
 		for (v=0; v<=this.height; v++) {
 			for (u=0; u<=this.width; u++) {
@@ -42,11 +44,11 @@ class Cloth {
 				vertPos.set(meshVertices.getX(i),
 							meshVertices.getY(i),
 							meshVertices.getZ(i));
-				if (this.integrator == "positionverlet") this.particles.push( new VerletParticle(vertPos, CONSTANTS.MASS) );
-				if (this.integrator == "expliciteuler") this.particles.push( new ExplicitEulerParticle(vertPos, CONSTANTS.MASS) );
+				if (this.opts.integrator_type == "positionverlet") this.particles.push( new VerletParticle(vertPos, CONSTANTS.MASS) );
+				if (this.opts.integrator_type == "expliciteuler") this.particles.push( new ExplicitEulerParticle(vertPos, CONSTANTS.MASS) );
 			}
 		}
-		this.addConstraints(constraint_types);
+		this.addConstraints(this.opts.constraint_types);
     }
 	addConstraints(types) {
 		var u,v,i_uv, i_uv1, i_u1v, restDist1, restDist2;
@@ -76,6 +78,7 @@ class Cloth {
 				i_u1v = index(u+1, this.height, this.width);
 				restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
 				this.constraints.push([	this.particles[i_uv], this.particles[i_u1v], restDist2] );
+				if (u==0) this.sampleRestDist = restDist2;
 			}
 		}
 		if (types.indexOf('sh') > -1) {
@@ -166,11 +169,11 @@ class Cloth {
 			//  [ k(dist(x1,x2)-r) + d(v1-v2 dot  normdir(x1,x2)) ] * dir(x1,x2)
 			p1 = this.constraints[i][0];
 			p2 = this.constraints[i][1];
-			if (this.integrator == "positionverlet") {
+			if (this.opts.integrator_type == "positionverlet") {
 				v1.subVectors(p1.position, p1.previousPos);
 				v2.subVectors(p2.position, p2.previousPos);
 			}
-			if (this.integrator == "expliciteuler") {
+			if (this.opts.integrator_type == "expliciteuler") {
 				v1 = p1.velocity;
 				v2 = p2.velocity;
 			}
@@ -189,7 +192,7 @@ class Cloth {
 			this.particles[i].integrate();
 		}
 	}
-	simulate(time, floor, type) { // Date.now()
+	simulate(time, floor, type, selfCollisions) { // Date.now()
 		//add forces, integrate, solve for constraints
 		if (!lastTime) {
 			lastTime = time;
@@ -205,6 +208,7 @@ class Cloth {
 		}
 		if (floor != null) this.putClothOnFloor(floor);
 		if (type == "constraints") this.satisfyConstraints(CONSTANTS.CONSTRAINT_ITERS);
+		if (selfCollisions) this.correctSelfCollisions(type);
 
 		/*
 		elapsedTime = time - lastTime + leftoverTime;
@@ -255,6 +259,47 @@ class Cloth {
 			}
 		}
 	}
+	correctSelfCollisions(type) { /*
+		var p1, p2, dist, diff;
+		var targetDist = this.sampleRestDist*2;
+		for (var i=0; i<this.particles.length; i++) {
+			for (var j=0; j<this.particles.length; j++) {
+				p1 = this.particles[i]; p2 = this.particles[j];
+				if (j > i+1 || j < i-1)
+				var awayFromJ = new THREE.Vector3();
+				dist = p1.position.distanceTo(p2.position);
+				awayFromJ.subVectors(p1.position, p2.position).divideScalar(dist);
+				if ( dist < targetDist) {
+					diff = (targetDist - dist)/2;
+					p1.position.add(awayFromJ.clone().multiplyScalar(diff));
+					p2.position.add(awayFromJ.clone().multiplyScalar(diff).negate());
+				}
+			}
+		} */
+		var u,v,u1,v1,i,j;
+		var p1, p2, dist, diff;
+		var targetDist = this.sampleRestDist*2;
+		for (v=0; v<this.height; v++ ) {
+			//for ( u=0; u<this.width; u++ ) {
+				for (v1=0; v1<this.height; v1++ ) {
+				//	for ( u1=0; u1<this.width; u1++ ) {
+						if (Math.abs(v-v1)> 1) { //&& Math.abs(u-u1)>1) {
+							p1 = this.particles[i]; p2 = this.particles[j];
+							if (j > i+1 || j < i-1)
+							var awayFromJ = new THREE.Vector3();
+							dist = p1.position.distanceTo(p2.position);
+							awayFromJ.subVectors(p1.position, p2.position).divideScalar(dist);
+							if ( dist < targetDist) {
+								diff = (targetDist - dist)/2;
+								p1.position.add(awayFromJ.clone().multiplyScalar(diff));
+								p2.position.add(awayFromJ.clone().multiplyScalar(diff).negate());
+							}
+						}
+					}
+				//}
+			//}
+		}
+	}
 }
 
 
@@ -281,7 +326,7 @@ class VerletParticle {
 	integrate() {
 		// squared timestep
 		var newPos = this.direction.subVectors(this.position, this.previousPos);
-		newPos.add(this.position).add(this.acceleration.multiplyScalar(TIMESTEP_2));
+		newPos.multiplyScalar(CONSTANTS.DRAG).add(this.position).add(this.acceleration.multiplyScalar(TIMESTEP_2));
 		this.direction = this.previousPos;
 		this.previousPos = this.position;
 		this.position = newPos;
