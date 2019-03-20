@@ -22,9 +22,9 @@ class Cloth {
 		var meshVertices = geometry.getAttribute('position');
         this.width = geometry.parameters.slices;
         this.height = geometry.parameters.stacks;
-	//	this.restDistance =
 		this.particles = []; 	//array of VerletParticle
 		this.constraints = [];	//array of index pairs and dist-constraint
+		this.pins = [];
 		var u,v;
 
 		for (v=0; v<=this.height; v++) {
@@ -37,43 +37,54 @@ class Cloth {
 				this.particles.push( new VerletParticle(vertPos, MASS) );
 			}
 		}
-
+		var i_uv, i_uv1, i_u1v, restDist1, restDist2;
 		// Structural constraints
 		for (v=0; v<this.height; v++ ) {
 			for ( u=0; u<this.width; u++ ) {
-				this.constraints.push([
-					this.particles[index(u,v,this.width)],
-					this.particles[index(u,v+1,this.width)],
-					restDistance]);
-				this.constraints.push([
-					this.particles[index(u,v,this.width)],
-					this.particles[index(u+1,v,this.width)],
-					restDistance]);
+				i_uv = index(u,v,this.width);
+				i_uv1 = index(u,v+1,this.width);
+				i_u1v = index(u+1,v,this.width);
+				restDist1 = this.particles[i_uv].position.distanceTo(this.particles[i_uv1].position);
+				restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
+				this.constraints.push([this.particles[i_uv], this.particles[i_uv1],
+					restDist1]);
+				this.constraints.push([this.particles[i_uv], this.particles[i_u1v],
+					restDist2]);
 			}
 		}
 		for (v=0; v<this.height; v++) {
-			this.constraints.push([	this.particles[index(this.width, v, this.width)],
-									this.particles[index(this.width, v+1, this.width)],
-									restDistance] );
+			i_uv = index(this.width, v, this.width);
+			i_uv1 = index(this.width, v+1, this.width);
+			restDist1 = this.particles[i_uv].position.distanceTo(this.particles[i_uv1].position);
+			this.constraints.push([	this.particles[i_uv],this.particles[i_uv1],restDist1 ]);
 		}
 		for (u=0; u<this.width; u++) {
-			this.constraints.push([	this.particles[index(u, this.height, this.width)],
-									this.particles[index(u+1, this.height, this.width)],
-									restDistance] );
+			i_uv = index(u, this.height, this.width);
+			i_u1v = index(u+1, this.height, this.width);
+			restDist2 = this.particles[i_uv].position.distanceTo(this.particles[i_u1v].position);
+			this.constraints.push([	this.particles[i_uv],
+									this.particles[i_u1v],
+									restDist2] );
 		}
 
 		//Shear constraints
-		var diagonalDistance = Math.sqrt(restDistance*restDistance*2);
+		var i_u1v1, diagonalDist;
 		for (v=0; v<this.height; v++ ) {
 			for ( u=0; u<this.width; u++ ) {
+				i_uv = index(u,v,this.width);
+				i_u1v1 = index(u+1,v+1,this.width);
+				diagonalDist = this.particles[i_uv].position.distanceTo(this.particles[i_u1v1].position);
+				i_u1v = index(u+1,v,this.width);
+				i_uv1 = index(u,v+1,this.width);
 				this.constraints.push([
-					this.particles[index(u,v,this.width)],
-					this.particles[index(u+1,v+1,this.width)],
-					diagonalDistance]);
+					this.particles[i_uv],
+					this.particles[i_u1v1],
+					diagonalDist]);
+				diagonalDist = this.particles[i_u1v].position.distanceTo(this.particles[i_uv1].position)
 				this.constraints.push([
-					this.particles[index(u+1,v,this.width)],
-					this.particles[index(u,v+1,this.width)],
-					diagonalDistance]);
+					this.particles[i_u1v],
+					this.particles[i_uv1],
+					diagonalDist]);
 			}
 		}
 
@@ -165,6 +176,7 @@ class VerletParticle {
 		this.position = pos;
 		this.mass = mass; this.massInv = 1/mass;
 		this.previousPos = pos.clone(); // previous position
+		this.originalPos = pos.clone(); // original position
 		this.acceleration = new THREE.Vector3();
 		this.direction = new THREE.Vector3();
 		this.force = new THREE.Vector3();
