@@ -35,8 +35,9 @@ var params = {
     bend: true,
     selfcollisions: false,
     restart: function() { destroyCloth(); initCloth(); },
+    makenew: function() { duplicateCloth(); },
     playpause: function() { if (!play) {play = true;} else {play=false} },
-    floorheight: -250,
+    floorheight: -500,
     pinCenter: false,
     pinTopLeft: true,
     pinTopRight: false
@@ -89,7 +90,7 @@ function initGUI() {
     var f3 = gui.addFolder('Constants');
     f3.add(CONSTANTS, 'MASS', 0.1, 2).onChange(function() { recalculateDependentConstants(); });
     f3.add(CONSTANTS, 'TIMESTEP', 0.01, 1).onChange(function() { recalculateDependentConstants(); });
-    f3.add(CONSTANTS, 'DRAG', 0, 1);
+    f3.add(CONSTANTS, 'DAMPING', 0, 1);
     f3.add(CONSTANTS, 'CONSTRAINT_ALPHA', 0, 1);
     f3.add(CONSTANTS, 'CONSTRAINT_ITERS', 3, 30);
     f3.add(CONSTANTS, 'SPRING_CONST', 0, 5);
@@ -100,6 +101,7 @@ function initGUI() {
     f4.add(params, 'pinCenter').onChange(function(b) { if (b) {cloth.addPin(pinOptions.center); } else { cloth.removePin(pinOptions.center)} });
     f4.add(params, 'pinTopLeft').onChange(function(b) { if (b) {cloth.addPin(pinOptions.topleft); } else { cloth.removePin(pinOptions.topleft)} });
     f4.add(params, 'pinTopRight').onChange(function(b) { if (b) {cloth.addPin(pinOptions.topright); } else { cloth.removePin(pinOptions.topright)} });
+//    gui.add(params, 'makenew'); in progress
     gui.add(params, 'restart');
     gui.add(params, 'playpause');
 }
@@ -135,7 +137,7 @@ function initCloth() {
                                     wireframe: materialProperties.wireframe} );
     //var material = new THREE.MeshPhongMaterial( {color: 0x2194ce, side: THREE.DoubleSide, wireframe: params.wireframe} );
     clothMesh = new THREE.Mesh( clothGeometry, clothMat );
-    clothMesh.position.set( 0, 50, 0 );
+    clothMesh.position.set( -params.width, 1, -params.height*1.5 );
     clothMesh.castShadow = true;
     clothMesh.receiveShadow = true;
     scene.add( clothMesh );
@@ -163,13 +165,22 @@ function destroyCloth() {
     clothGeometry.dispose();
 }
 
+/*
+function duplicateCloth() {
+    var clothMesh2 = clothMesh.clone();
+    clothMesh2.position.set(-params.width, 200, -params.height/2)
+    scene.add( clothMesh );
+
+    var cloth2 = new Cloth(clothMesh2,{   constraint_types: constraintTypes,
+        integrator_type: "positionverlet"} );
+} */ //in progress
 function init() {
     initGUI();
     container = document.createElement( 'div' );
     document.body.appendChild( container );
     // camera
     camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 10000 );
-    camera.position.set( 1000, 50, 1500 );
+    camera.position.set( -1000, -400, -3000 );
 
     scene2();
     lights();
@@ -188,10 +199,12 @@ function init() {
 
 
     // controls
+
     var controls = new THREE.OrbitControls( camera, renderer.domElement );
     controls.maxPolarAngle = Math.PI;
-    controls.minDistance = 1000;
+    controls.minDistance = 500;
     controls.maxDistance = 5000;
+    controls.target = getCenterPoint(clothMesh);
 
     //raycaster
     raycaster = new THREE.Raycaster();
@@ -219,7 +232,7 @@ function render() {
         clothGeometry.getAttribute('position').setXYZ(i, p.position.x, p.position.y, p.position.z);
     }
     clothGeometry.attributes.position.needsUpdate = true;
-    floorMesh.position.y = params.floorheight+49;
+    floorMesh.position.y = params.floorheight;
 
     renderer.render( scene, camera );
 }
@@ -233,10 +246,10 @@ function lights() {
 	scene.add( ambientLight );
 	var lights = [];
 	lights[ 0 ] = new THREE.PointLight( 0xffffff, 1, 0 );
-	lights[ 1 ] = new THREE.PointLight( 0xffffff, 1, 0 );
-	lights[ 2 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+	lights[ 1 ] = new THREE.PointLight( 0x0000ff, 1, 0 );
+	lights[ 2 ] = new THREE.PointLight( 0x00ffff, 1, 0 );
 	lights[ 0 ].position.set( 0, 200, 0 );
-	lights[ 1 ].position.set( 100, 200, 100 );
+	lights[ 1 ].position.set( 100, 400, 100 );
 	lights[ 2 ].position.set( - 100, - 200, - 100 );
 	scene.add( lights[ 0 ] );
 	scene.add( lights[ 1 ] );
@@ -280,7 +293,7 @@ function models() {
     //create ground
     floorMesh = new THREE.Mesh(  new THREE.PlaneBufferGeometry( 20000, 20000 ),
                                 new THREE.MeshStandardMaterial( {color: 0x555555, roughness:0, metalness: 0} ) );
-    floorMesh.position.y = -250;
+    floorMesh.position.y = params.floorheight + 49;
     floorMesh.rotation.x = - Math.PI / 2;
     floorMesh.receiveShadow = true;
     scene.add( floorMesh );
@@ -305,4 +318,12 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+function getCenterPoint(mesh) {
+    var geometry = mesh.geometry;
+    geometry.computeBoundingBox();
+    center = geometry.boundingBox.getCenter();
+    mesh.localToWorld( center );
+    return center;
 }

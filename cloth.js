@@ -1,7 +1,7 @@
 var CONSTANTS = {
 	MASS: 0.1,
 	TIMESTEP: 0.1,
-	DRAG: 0,
+	DAMPING: 0,
 	CONSTRAINT_ALPHA: 0.1,
 	CONSTRAINT_ITERS: 5,
 	SPRING_CONST: 2,
@@ -326,7 +326,7 @@ class VerletParticle {
 	integrate() {
 		// squared timestep
 		var newPos = this.direction.subVectors(this.position, this.previousPos);
-		newPos.multiplyScalar(CONSTANTS.DRAG).add(this.position).add(this.acceleration.multiplyScalar(TIMESTEP_2));
+		newPos.multiplyScalar(1-CONSTANTS.DAMPING).add(this.position).add(this.acceleration.multiplyScalar(TIMESTEP_2));
 		this.direction = this.previousPos;
 		this.previousPos = this.position;
 		this.position = newPos;
