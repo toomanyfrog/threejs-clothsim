@@ -40,13 +40,20 @@ var pinOptions = {
     center: [Math.floor(params.slices/2), Math.floor(params.stacks/2)],
     topleft: [0,0],
     topright: [params.slices, 0]
+};
+function recalculatePins() {
+    pinOptions = {
+        center: [Math.floor(params.slices/2), Math.floor(params.stacks/2)],
+        topleft: [0,0],
+        topright: [params.slices, 0]
+    };
 }
 var materialProperties = {
     wireframe: true,
     roughness: 0.8,
     metalness: 0,
     'color': clothMat.color.getHex()
-}
+};
 
 init();
 animate();
@@ -72,13 +79,13 @@ function initGUI() {
     f2.add(params, 'shear');
     f2.add(params, 'bend');
     var f3 = gui.addFolder('Constants');
-    f3.add(CONSTANTS, 'MASS', 0.1, 2);
-    f3.add(CONSTANTS, 'TIMESTEP', 0.01, 1);
+    f3.add(CONSTANTS, 'MASS', 0.1, 2).onChange(function() { recalculateDependentConstants(); });
+    f3.add(CONSTANTS, 'TIMESTEP', 0.01, 1).onChange(function() { recalculateDependentConstants(); });
     f3.add(CONSTANTS, 'CONSTRAINT_ALPHA', 0, 1);
     f3.add(CONSTANTS, 'CONSTRAINT_ITERS', 3, 30);
     f3.add(CONSTANTS, 'SPRING_CONST', 0, 5);
     f3.add(CONSTANTS, 'DAMPING_CONST', 0.01, 5);
-    f3.add(CONSTANTS, 'GRAVITY');
+    f3.add(CONSTANTS, 'GRAVITY').onChange(function() { recalculateDependentConstants(); });
     var f4 = gui.addFolder('Environment');
     f4.add(params, 'floorheight', -500, 500);
     f4.add(params, 'pinCenter').onChange(function(b) { if (b) {cloth.addPin(pinOptions.center); } else { cloth.removePin(pinOptions.center)} });
@@ -114,8 +121,15 @@ function initCloth() {
     if (params.shear) constraintTypes += "sh";
     if (params.bend) constraintTypes += "b";
     cloth = new Cloth(clothMesh, constraintTypes);
-    cloth.addPin([0,0]);
+    if (params.pinCenter) cloth.addPin(pinOptions.center);
+    if (params.pinTopLeft) cloth.addPin(pinOptions.topleft);
+    if (params.pinTopRight) cloth.addPin(pinOptions.topright);
     //cloth.addPin([Math.floor(params.slices/2), Math.floor(params.stacks/2)]);
+    pinOptions = {
+        center: [Math.floor(params.slices/2), Math.floor(params.stacks/2)],
+        topleft: [0,0],
+        topright: [params.slices, 0]
+    }
 }
 function destroyCloth() {
     scene.remove(clothMesh);

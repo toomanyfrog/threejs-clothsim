@@ -18,6 +18,10 @@ function index(u,v,cols) {
 	// PlaneBufferGeometry iterates v then u
 	return u + v*(cols+1);
 }
+function recalculateDependentConstants() {
+	TIMESTEP_2 = CONSTANTS.TIMESTEP * CONSTANTS.TIMESTEP;
+	WEIGHT = new THREE.Vector3( 0, -CONSTANTS.GRAVITY, 0 ).multiplyScalar( CONSTANTS.MASS );
+}
 
 class Cloth {
     constructor(mesh, constraint_types) {
