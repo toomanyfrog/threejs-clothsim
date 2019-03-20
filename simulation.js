@@ -14,6 +14,7 @@ var camera, gui, scene, renderer, raycaster;
 var mouse = new THREE.Vector2();
 var raycastThreshold = 0.1;
 var play = false;
+var bgCol = 0x374A5A;
 
 var clothMesh, clothGeometry, cloth;
 var constraintTypes = "";
@@ -58,8 +59,12 @@ function initCloth() {
     //clothGeometry = new THREE.ParametricBufferGeometry(THREE.ParametricGeometries.klein, 50, 50 );
     //clothGeometry.scale(20,20,20);
 
-    var material = new THREE.MeshBasicMaterial( {color: 0x000000, side: THREE.DoubleSide, wireframe: params.wireframe} );
-    var material = new THREE.MeshPhongMaterial( {color: 0x2194ce, side: THREE.DoubleSide, wireframe: params.wireframe} );
+    var material = new THREE.MeshStandardMaterial({ color: 0x2194ce,
+                                    side: THREE.DoubleSide,
+									metalness: 0.5,
+									roughness: 0.8,
+                                    wireframe: params.wireframe} );
+    //var material = new THREE.MeshPhongMaterial( {color: 0x2194ce, side: THREE.DoubleSide, wireframe: params.wireframe} );
     clothMesh = new THREE.Mesh( clothGeometry, material );
     clothMesh.position.set( 0, 50, 0 );
     clothMesh.castShadow = true;
@@ -138,8 +143,8 @@ function render() {
 function scene() {
     // scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color( 0xcce0ff );
-    scene.fog = new THREE.Fog( 0xcce0ff, 500, 10000 );
+    scene.background = new THREE.Color( bgCol );
+    scene.fog = new THREE.Fog( bgCol, 500, 10000 );
 
     // camera
     camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 10000 );
@@ -162,21 +167,21 @@ function scene() {
 
     scene.add( light ); */
 
-    			var ambientLight = new THREE.AmbientLight( 0x000000 );
-    			scene.add( ambientLight );
+	var ambientLight = new THREE.AmbientLight( bgCol );
+	scene.add( ambientLight );
 
-    			var lights = [];
-    			lights[ 0 ] = new THREE.PointLight( 0xffffff, 1, 0 );
-    			lights[ 1 ] = new THREE.PointLight( 0xffffff, 1, 0 );
-    			lights[ 2 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+	var lights = [];
+	lights[ 0 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+	lights[ 1 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+	lights[ 2 ] = new THREE.PointLight( 0xffffff, 1, 0 );
 
-    			lights[ 0 ].position.set( 0, 200, 0 );
-    			lights[ 1 ].position.set( 100, 200, 100 );
-    			lights[ 2 ].position.set( - 100, - 200, - 100 );
+	lights[ 0 ].position.set( 0, 200, 0 );
+	lights[ 1 ].position.set( 100, 200, 100 );
+	lights[ 2 ].position.set( - 100, - 200, - 100 );
 
-    			scene.add( lights[ 0 ] );
-    			scene.add( lights[ 1 ] );
-    			scene.add( lights[ 2 ] );
+	scene.add( lights[ 0 ] );
+	scene.add( lights[ 1 ] );
+	scene.add( lights[ 2 ] );
 }
 
 function yPlane( width, height ) {
