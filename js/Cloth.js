@@ -10,7 +10,7 @@
 // http://cg.alexandra.dk/tag/spring-mass-system/
 // Real-time Cloth Animation http://www.darwin3d.com/gamedev/articles/col0599.pdf
 
-var DAMPING = 1;
+var DAMPING = 0.5;
 var DRAG = 1 - DAMPING;
 var MASS = 0.1;
 var restDistance = 25;
@@ -93,7 +93,7 @@ Particle.prototype.addForce = function ( force ) {
 Particle.prototype.integrate = function ( timesq ) {
 
 	var newPos = this.tmp.subVectors( this.position, this.previous );
-	newPos.multiplyScalar( DRAG ).add( this.position );
+	newPos.multiplyScalar( 1 ).add( this.position );
 	newPos.add( this.a.multiplyScalar( timesq ) );
 
 	this.tmp = this.previous;
